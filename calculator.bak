@@ -1,0 +1,113 @@
+#lang racket/base
+(display "the only character this program accepts is ()+-*/^ and digits and potentially decimals\n")
+; this program will first convert the input into a tree like structure
+; and then evaluate it (which will be easy)
+(struct expr 
+  (symbol fstexp sndexp)
+)
+;expression can be number
+   
+;symbol that appear last on this list get evaluated first
+(define precedence (list (list #\+ #\-) (list #\* #\/) (list #\^)))
+   
+;evaluate the whole expression
+(define (evaluate e)
+  (if (expr? e)
+    (case (expr-symbol e)
+      ((#\+) (+ (evaluate (expr-fstexp e)) (evaluate (expr-sndexp e))))
+      ((#\-) (- (evaluate (expr-fstexp e)) (evaluate (expr-sndexp e))))
+      ((#\*) (* (evaluate (expr-fstexp e)) (evaluate (expr-sndexp e))))
+      ((#\/) (/ (evaluate (expr-fstexp e)) (evaluate (expr-sndexp e))))
+      ((#\^) (expt (evaluate (expr-fstexp e)) (evaluate (expr-sndexp e))))
+    )
+    e
+  )
+)
+
+;turn a string into the tree like expression structure
+(define (convert str)
+  (let ((strnb (nobra str)))
+    (if (isnum strnb)
+      (string->number strnb)
+      (let ((root (find-root strnb 0)))
+        (expr (string-ref strnb root) (convert (string-head strnb root)) (convert (string-tail strnb (+ root 1))))
+      )
+    )
+  )
+)
+
+; get rid of start and end bracket
+(define (nobra str)
+  (if (and (equal? (string-ref str 0) #\() (equal? (string-ref str (- (string-length str) 1)) #\)))
+    (nobra (substring str 1 (- (string-length str) 1)))
+    str
+  )
+)
+
+; true if str is empty or if it contain only digits and .
+(define (isnum str)
+  (if (= (string-length str) 0)
+    #t
+    (if (memq (string-ref str 0) (list #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\0 #\.))
+      (isnum (string-tail str 1))
+      #f
+    )
+  )
+)
+
+; find the last symbol to be executed
+; return the index of root
+(define (find-root str i)
+  (let ([lio (last-index-of str (list-ref precedence i))])
+    (if (not lio)
+      (find-root str (+ i 1))
+      lio
+    )
+  )
+)
+
+; find last index of a char in list
+; ignoring everything in ()
+(define (last-index-of str lis)
+  (if (= (string-length str) 0)
+    #f
+    (let ([last-char (string-ref str (- (string-length str) 1))])
+      (if (memq last-char lis)
+        (- (string-length str) 1)
+        (if (equal? last-char #\))
+          (last-index-of (without-last-bra str) lis)
+          (last-index-of (string-head str (- (string-length str) 1)) lis)
+        )
+      )
+    )
+  )
+)
+
+; remove everything in last bracket knowing lastchar is )
+(define (without-last-bra str)
+  (without-last-bra-count (string-head str (- (string-length str) 1)) 1)
+)
+(define (without-last-bra-count str count)
+  (if (= count 0)
+    str
+    (let ([str-head (string-head str (- (string-length str) 1))])
+      (case (string-ref str (- (string-length str) 1))
+        ((#\)) (without-last-bra-count str-head (+ count 1)))
+        ((#\() (without-last-bra-count str-head (- count 1)))
+        (else (without-last-bra-count str-head count))
+      )
+    )
+  )
+)
+
+(define (string-head str num)
+  (substring str 0 num)
+)
+
+(define (string-tail str num)
+  (substring str num (string-length str))
+)
+
+(define equation (read-line))
+
+(display (evaluate (convert equation)))
